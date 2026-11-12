@@ -1,381 +1,168 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>Chúc Bạn Ngủ Ngon</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@800&display=swap">
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bai Bai bn iu nhó</title>
 <style>
-/* Layout: one full-bleed night canvas. The dotted greeting floats in the centre, hearts drift upward around it. */
-:root {
-  --bg: #050106;
-  --glow: #1e0818;
-  --pink: #ff5fae;
-  --pink-soft: #ffa3d3;
-  --pink-deep: #ff2d8a;
-  --pink-dim: #a8588a;
-  --font-display: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
-  color-scheme: dark;
-}
-html, body { height: 100%; }
-body {
-  background: var(--bg);
-  color: var(--pink-soft);
-  font-family: var(--font-display);
-  overflow: hidden;
-  padding-block: 0;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  -webkit-user-select: none;
-  user-select: none;
-}
-.sky {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(ellipse 70% 55% at 50% 48%, var(--glow) 0%, var(--bg) 72%);
-}
-#stage {
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  display: block;
-  touch-action: none;
-}
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-.hint {
-  position: fixed;
-  z-index: 2;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  text-align: center;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  color: var(--pink-dim);
-  pointer-events: none;
-  animation: hint-out 1.2s ease 7s forwards;
-}
-@keyframes hint-out { to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .hint { animation: none; } }
+  :root { --bg:#000; --pink:#ff4fa3; box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); overflow:hidden; }
+  canvas { display:block; width:100%; height:100%; }
+  .hint { position:fixed; left:0; right:0; bottom:calc(18px + env(safe-area-inset-bottom,0px)); text-align:center;
+    color:#ff4fa3aa; font:14px/1.4 "Segoe UI",system-ui,sans-serif; pointer-events:none; letter-spacing:.04em; transition:opacity 1s; }
 </style>
-
-<div class="sky" aria-hidden="true"></div>
-<h1 class="sr-only">Chúc Bạn Ngủ Ngon</h1>
-<canvas id="stage" aria-hidden="true"></canvas>
-<p class="hint">Chạm vào màn hình để thả tim</p>
-
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint" id="hint">chạm hai lần vào màn hình ♡</div>
 <script>
-(function () {
-  'use strict';
-  var cv = document.getElementById('stage');
-  var ctx = cv.getContext('2d');
-  var css = getComputedStyle(document.documentElement);
-  function tok(n, f) { return (css.getPropertyValue(n).trim() || f); }
-  var PINK = [tok('--pink', '#ff5fae'), tok('--pink-soft', '#ffa3d3'), tok('--pink-deep', '#ff2d8a')];
-  var FONT = tok('--font-display', 'sans-serif');
-  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var MO = reduce ? 0.3 : 1;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H, dpr, particles = [], hearts = [], stars = [], mouse = {x:-999,y:-999}, phase = 0;
+const PHRASES = ['Bai Bai bn iu nhó', 'Chúc Bạn Ngủ Ngon'];
+let cur = 0, t0 = performance.now();
 
-  var W = 0, H = 0, dpr = 1, fs = 100, builtAt = 0;
-
-  /* ---------- glow sprites ---------- */
-  function hexA(h, a) {
-    var n = parseInt(h.slice(1), 16);
-    return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
-  }
-  function makeSprite(color) {
-    var s = 64, c = document.createElement('canvas');
-    c.width = c.height = s;
-    var g = c.getContext('2d');
-    var gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,240,248,1)');
-    gr.addColorStop(0.12, color);
-    gr.addColorStop(0.3, color);
-    gr.addColorStop(0.55, hexA(color, 0.35));
-    gr.addColorStop(1, hexA(color, 0));
-    g.fillStyle = gr;
-    g.fillRect(0, 0, s, s);
-    return c;
-  }
-  var SPR = PINK.map(makeSprite);
-
-  /* ---------- dotted text ---------- */
-  var n = 0, X, Y, VX, VY, TX, TY, PH, SZ, CI;
-
-  function build() {
-    W = innerWidth; H = innerHeight;
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    cv.width = Math.round(W * dpr);
-    cv.height = Math.round(H * dpr);
-
-    var lines = W < 680 ? ['Chúc Bạn', 'Ngủ Ngon'] : ['Chúc Bạn Ngủ Ngon'];
-    var off = document.createElement('canvas');
-    off.width = W; off.height = H;
-    var o = off.getContext('2d', { willReadFrequently: true });
-
-    var probe = 100, wmax = 0;
-    o.font = '800 ' + probe + 'px ' + FONT;
-    lines.forEach(function (l) { wmax = Math.max(wmax, o.measureText(l).width); });
-    var lh = 1.22;
-    fs = probe * (W * 0.86) / wmax;
-    fs = Math.min(fs, (H * 0.62) / (lines.length * lh), lines.length === 1 ? H * 0.3 : H * 0.24);
-
-    o.clearRect(0, 0, W, H);
-    o.font = '800 ' + fs + 'px ' + FONT;
-    o.textAlign = 'center';
-    o.textBaseline = 'middle';
-    o.fillStyle = '#fff';
-    lines.forEach(function (l, i) {
-      o.fillText(l, W / 2, H / 2 + (i - (lines.length - 1) / 2) * fs * lh);
-    });
-    var data = o.getImageData(0, 0, W, H).data;
-
-    var gap = Math.max(3, Math.round(fs / 30)), pts, tries = 0;
-    do {
-      pts = [];
-      for (var y = 0; y < H; y += gap) {
-        for (var x = 0; x < W; x += gap) {
-          if (data[((y * W) + x) * 4 + 3] > 140) {
-            pts.push(x + (Math.random() - 0.5) * gap * 0.5, y + (Math.random() - 0.5) * gap * 0.5);
-          }
-        }
-      }
-      if (pts.length / 2 > 8000) gap++;
-      tries++;
-    } while (pts.length / 2 > 8000 && tries < 4);
-
-    n = pts.length / 2;
-    X = new Float32Array(n); Y = new Float32Array(n);
-    VX = new Float32Array(n); VY = new Float32Array(n);
-    TX = new Float32Array(n); TY = new Float32Array(n);
-    PH = new Float32Array(n); SZ = new Float32Array(n); CI = new Uint8Array(n);
-    var u = gap * 0.5, reach = Math.max(W, H) * 0.65;
-    for (var i = 0; i < n; i++) {
-      TX[i] = pts[i * 2]; TY[i] = pts[i * 2 + 1];
-      if (reduce) {
-        X[i] = TX[i]; Y[i] = TY[i];
-      } else {
-        var a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * reach;
-        X[i] = W / 2 + Math.cos(a) * r; Y[i] = H / 2 + Math.sin(a) * r;
-      }
-      PH[i] = Math.random() * 6.283;
-      SZ[i] = u * (0.6 + Math.random() * 0.5);
-      var q = Math.random();
-      CI[i] = q < 0.62 ? 0 : (q < 0.88 ? 1 : 2);
-    }
-    builtAt = performance.now();
-  }
-
-  /* ---------- hearts ---------- */
-  var hearts = [], bursts = [], stars = [];
-
-  function pick() { return PINK[Math.floor(Math.random() * PINK.length)]; }
-
-  function newHeart(initial) {
-    var z = Math.random();
-    var s = 10 + z * z * 34 + Math.random() * 6;
-    var q = Math.random();
-    return {
-      x: Math.random() * W,
-      y: initial ? Math.random() * H : H + s * 2 + Math.random() * 80,
-      s: s,
-      v: 0.2 + z * 0.6 + Math.random() * 0.2,
-      amp: 12 + Math.random() * 34,
-      fr: 0.0006 + Math.random() * 0.0012,
-      ph: Math.random() * 6.283,
-      rot: 0.18 + Math.random() * 0.3,
-      c: pick(),
-      st: q < 0.6 ? 0 : (q < 0.85 ? 1 : 2),
-      a: 0.3 + z * 0.6,
-      pulse: Math.random() * 6.283
-    };
-  }
-  function makeHearts() {
-    var count = Math.max(16, Math.min(42, Math.round(W / 34)));
-    hearts = [];
-    for (var i = 0; i < count; i++) hearts.push(newHeart(true));
-  }
-  function makeStars() {
-    stars = [];
-    for (var i = 0; i < 90; i++) {
-      stars.push({ x: Math.random(), y: Math.random(), r: 0.5 + Math.random() * 1.0, ph: Math.random() * 6.283, sp: 0.001 + Math.random() * 0.002 });
-    }
-  }
-
-  function heartPath(k) {
-    ctx.beginPath();
-    ctx.moveTo(0, -0.25 * k);
-    ctx.bezierCurveTo(0.15 * k, -0.9 * k, 0.95 * k, -0.7 * k, 0.95 * k, 0.05 * k);
-    ctx.bezierCurveTo(0.95 * k, 0.5 * k, 0.35 * k, 0.7 * k, 0, 1 * k);
-    ctx.bezierCurveTo(-0.35 * k, 0.7 * k, -0.95 * k, 0.5 * k, -0.95 * k, 0.05 * k);
-    ctx.bezierCurveTo(-0.95 * k, -0.7 * k, -0.15 * k, -0.9 * k, 0, -0.25 * k);
-    ctx.closePath();
-  }
-
-  function drawHeart(x, y, s, rot, sc, color, style, alpha) {
-    var k = s * 0.55;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rot);
-    ctx.scale(sc, sc);
-    ctx.translate(0, -0.14 * k);
-    ctx.globalAlpha = alpha;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = s * 0.9;
-    heartPath(k);
-    if (style === 1) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = Math.max(1.4, s * 0.07);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = color;
-      ctx.globalAlpha = style === 2 ? alpha * 0.7 : alpha;
-      ctx.fill();
-      if (style === 0) {
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = alpha * 0.4;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.ellipse(-0.52 * k, -0.34 * k, 0.24 * k, 0.13 * k, -0.6, 0, 6.283);
-        ctx.fill();
-      }
-    }
-    ctx.restore();
-  }
-
-  function spawnBurst(x, y) {
-    for (var i = 0; i < 8; i++) {
-      var a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
-      var sp = 1.4 + Math.random() * 3.4;
-      var life = 70 + Math.random() * 50;
-      bursts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, s: 9 + Math.random() * 12, life: life, max: life, c: pick(), r: (Math.random() - 0.5) * 0.8, st: Math.random() < 0.7 ? 0 : 2 });
-    }
-    if (bursts.length > 90) bursts.splice(0, bursts.length - 90);
-  }
-
-  /* ---------- pointer ---------- */
-  var mx = -9999, my = -9999;
-  window.addEventListener('pointermove', function (e) { mx = e.clientX; my = e.clientY; });
-  window.addEventListener('pointerdown', function (e) { mx = e.clientX; my = e.clientY; spawnBurst(mx, my); });
-  function clearPointer() { mx = -9999; my = -9999; }
-  window.addEventListener('pointerup', function (e) { if (e.pointerType !== 'mouse') clearPointer(); });
-  window.addEventListener('pointercancel', clearPointer);
-  window.addEventListener('blur', clearPointer);
-  document.documentElement.addEventListener('mouseleave', clearPointer);
-
-  /* ---------- frame ---------- */
-  var last = performance.now();
-
-  function frame(now) {
-    var dt = Math.min((now - last) / 16.667, 3);
-    last = now;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
-    ctx.globalAlpha = 1;
-
-    /* stars */
-    ctx.fillStyle = tok('--pink-soft', '#ffa3d3');
-    for (var s = 0; s < stars.length; s++) {
-      var st = stars[s];
-      ctx.globalAlpha = 0.08 + 0.4 * Math.abs(Math.sin(now * st.sp + st.ph));
-      ctx.fillRect(st.x * W, st.y * H, st.r, st.r);
-    }
-
-    /* hearts */
-    for (var i = 0; i < hearts.length; i++) {
-      var h = hearts[i];
-      h.y -= h.v * dt * MO;
-      if (h.y < -h.s * 2) { var nh = newHeart(false); hearts[i] = nh; h = nh; }
-      var hx = h.x + Math.sin(now * h.fr * MO + h.ph) * h.amp;
-      var rot = Math.sin(now * h.fr * 1.3 + h.ph) * h.rot * (reduce ? 0.3 : 1);
-      var sc = 1 + (reduce ? 0 : 0.07 * Math.sin(now * 0.004 + h.pulse));
-      var fade = Math.max(0, Math.min(1, h.y / (H * 0.15), (H + 40 - h.y) / (H * 0.12)));
-      drawHeart(hx, h.y, h.s, rot, sc, h.c, h.st, h.a * fade);
-    }
-
-    /* tap bursts */
-    for (var b = bursts.length - 1; b >= 0; b--) {
-      var p = bursts[b];
-      p.life -= dt;
-      if (p.life <= 0) { bursts.splice(b, 1); continue; }
-      p.x += p.vx * dt; p.y += p.vy * dt - 0.03 * dt;
-      var d = Math.pow(0.985, dt); p.vx *= d; p.vy *= d;
-      var lf = p.life / p.max;
-      drawHeart(p.x, p.y, p.s * (0.6 + 0.6 * (1 - lf)), p.r, 1, p.c, p.st, Math.min(1, lf * 1.6) * 0.95);
-    }
-
-    /* dotted text */
-    if (n > 0) {
-      var prog = reduce ? 1 : Math.min(1, (now - builtAt) / 2600);
-      var ease = prog * prog * (3 - 2 * prog);
-      var k = 0.012 + 0.05 * ease;
-      var damp = Math.pow(0.88, dt);
-      var amp = reduce ? 0 : fs * 0.05;
-      var bobY = Math.sin(now * 0.0013) * amp;
-      var R = Math.min(130, Math.max(70, fs * 0.8)), R2 = R * R;
-      var pointer = mx > -1000;
-      for (var j = 0; j < n; j++) {
-        var wave = Math.sin(now * 0.0011 + TX[j] * 0.006) * amp * 0.45;
-        var ox = Math.sin(now * 0.0009 + TY[j] * 0.012) * amp * 0.18;
-        var gx = TX[j] + ox, gy = TY[j] + bobY + wave;
-        var vx = VX[j] + (gx - X[j]) * k * dt;
-        var vy = VY[j] + (gy - Y[j]) * k * dt;
-        if (pointer) {
-          var dx = X[j] - mx, dy = Y[j] - my, d2 = dx * dx + dy * dy;
-          if (d2 < R2 && d2 > 0.01) {
-            var dd = Math.sqrt(d2), f = (1 - dd / R);
-            f = f * f * 7 * dt;
-            vx += dx / dd * f; vy += dy / dd * f;
-          }
-        }
-        vx *= damp; vy *= damp;
-        VX[j] = vx; VY[j] = vy;
-        X[j] += vx * dt; Y[j] += vy * dt;
-        var tw = reduce ? 0.9 : 0.72 + 0.28 * Math.sin(now * 0.0028 + PH[j]);
-        ctx.globalAlpha = tw;
-        var sz = SZ[j] * 4.8;
-        ctx.drawImage(SPR[CI[j]], X[j] - sz / 2, Y[j] - sz / 2, sz, sz);
-      }
-    }
-
-    ctx.globalAlpha = 1;
-    requestAnimationFrame(frame);
-  }
-
-  /* ---------- start ---------- */
+function resize(){
+  dpr = Math.min(window.devicePixelRatio||1, 2);
   W = innerWidth; H = innerHeight;
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-  makeHearts();
-  makeStars();
+  cv.width = W*dpr; cv.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  buildTargets(PHRASES[cur], true);
+  stars = Array.from({length:70}, () => ({x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.2+.3, p:Math.random()*6}));
+}
+
+function buildTargets(text, init){
+  const off = document.createElement('canvas'); off.width = W; off.height = H;
+  const o = off.getContext('2d');
+  const words = text.split(' ');
+  const mobile = W < 600;
+  // chia dòng: điện thoại 2 dòng, máy tính 1 dòng
+  const lines = mobile ? [words.slice(0, Math.ceil(words.length/2)).join(' '), words.slice(Math.ceil(words.length/2)).join(' ')] : [text];
+  let fs = Math.min(W / (mobile ? 6.2 : 11.5), 150);
+  o.font = `800 ${fs}px "Segoe UI",Arial,sans-serif`;
+  o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff';
+  const lh = fs*1.15;
+  lines.forEach((l,i) => o.fillText(l, W/2, H/2 + (i-(lines.length-1)/2)*lh));
+  const d = o.getImageData(0,0,W,H).data;
+  const gap = Math.max(4, Math.round(fs/17));
+  const pts = [];
+  for(let y=0;y<H;y+=gap) for(let x=0;x<W;x+=gap){
+    if(d[(y*W+x)*4+3] > 128) pts.push({x,y});
+  }
+  // trộn để chuyển chữ mượt hơn
+  pts.sort(()=>Math.random()-.5);
+  while(particles.length < pts.length){
+    const a = Math.random()*6.28, r = Math.max(W,H)*(.5+Math.random()*.4);
+    particles.push({x:W/2+Math.cos(a)*r, y:H/2+Math.sin(a)*r, vx:0, vy:0, tx:W/2, ty:H/2, s:1, ph:Math.random()*6.28, hue:0});
+  }
+  particles.forEach((p,i) => {
+    const q = pts[i % pts.length];
+    p.tx = q.x; p.ty = q.y;
+    p.s = (gap*0.28) + Math.random()*gap*0.12;
+    p.hue = Math.random();
+    p.extra = i >= pts.length; // hạt dư
+  });
+  if(particles.length > pts.length) particles.length = pts.length;
+  gapSize = gap;
+}
+let gapSize = 6;
+
+function heartPath(c, x, y, s){
+  c.beginPath();
+  c.moveTo(x, y + s*.35);
+  c.bezierCurveTo(x, y, x - s*.5, y, x - s*.5, y + s*.35);
+  c.bezierCurveTo(x - s*.5, y + s*.7, x, y + s*.85, x, y + s*1.05);
+  c.bezierCurveTo(x, y + s*.85, x + s*.5, y + s*.7, x + s*.5, y + s*.35);
+  c.bezierCurveTo(x + s*.5, y, x, y, x, y + s*.35);
+  c.closePath();
+}
+function spawnHeart(initial){
+  hearts.push({
+    x: Math.random()*W, y: initial ? Math.random()*H : H + 30,
+    s: 10 + Math.random()*30, vy: .3 + Math.random()*.9,
+    sw: Math.random()*6, sa: 10 + Math.random()*25,
+    a: .25 + Math.random()*.6, rot: (Math.random()-.5)*.6,
+    c: ['#ff4fa3','#ff7ab8','#ff2d87','#ffb3d6','#ff5c8a'][Math.floor(Math.random()*5)],
+    glow: Math.random() > .5
+  });
+}
+for(let i=0;i<34;i++) spawnHeart(true);
+
+function frame(now){
+  const t = (now - t0)/1000;
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0,0,W,H);
+
+  // sao lấp lánh
+  stars.forEach(s => {
+    ctx.globalAlpha = .25 + .35*Math.sin(t*1.5 + s.p);
+    ctx.fillStyle = '#ffd1e8'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.28); ctx.fill();
+  });
+
+  // tim bay
+  if(Math.random() < .08) spawnHeart(false);
+  hearts = hearts.filter(h => h.y > -60);
+  hearts.forEach(h => {
+    h.y -= h.vy;
+    const x = h.x + Math.sin(t*1.2 + h.sw)*h.sa;
+    ctx.save();
+    ctx.translate(x, h.y); ctx.rotate(h.rot + Math.sin(t + h.sw)*.15); ctx.translate(-x, -h.y);
+    ctx.globalAlpha = h.a * Math.min(1, h.y/120 + .2);
+    ctx.fillStyle = h.c;
+    if(h.glow){ ctx.shadowColor = h.c; ctx.shadowBlur = 18; }
+    heartPath(ctx, x, h.y, h.s); ctx.fill();
+    ctx.restore();
+  });
+
+  // chữ bằng chấm, bay lơ lửng
+  const floatY = Math.sin(t*1.1)*10, floatX = Math.sin(t*.7)*6;
+  ctx.shadowColor = '#ff4fa3'; ctx.shadowBlur = 10;
+  particles.forEach(p => {
+    const tx = p.tx + floatX + Math.sin(t*2 + p.ph)*1.6;
+    const ty = p.ty + floatY + Math.cos(t*2.2 + p.ph)*1.6;
+    // đẩy ra khi chạm/di chuột
+    const dx = p.x - mouse.x, dy = p.y - mouse.y, d2 = dx*dx + dy*dy;
+    if(d2 < 6000){ const f = (1 - d2/6000)*6, d = Math.sqrt(d2)||1; p.vx += dx/d*f; p.vy += dy/d*f; }
+    p.vx += (tx - p.x)*.045; p.vy += (ty - p.y)*.045;
+    p.vx *= .86; p.vy *= .86;
+    p.x += p.vx; p.y += p.vy;
+    const tw = .75 + .25*Math.sin(t*3 + p.ph);
+    ctx.globalAlpha = tw;
+    ctx.fillStyle = p.hue < .12 ? '#ffd0e6' : (p.hue < .55 ? '#ff4fa3' : '#ff74b8');
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 6.28); ctx.fill();
+  });
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
   requestAnimationFrame(frame);
+}
 
-  var fontReady = new Promise(function (res) {
-    try {
-      Promise.race([
-        document.fonts.load('800 100px "Be Vietnam Pro"', 'Chúc Bạn Ngủ Ngon'),
-        new Promise(function (r) { setTimeout(r, 2500); })
-      ]).then(res, res);
-    } catch (e) { res(); }
-  });
-  fontReady.then(function () { build(); });
+// tạo vài trái tim nổ ra khi đổi chữ
+function burst(x, y){
+  for(let i=0;i<14;i++){
+    hearts.push({x:x+(Math.random()-.5)*60, y:y+(Math.random()-.5)*60, s:12+Math.random()*26, vy:1+Math.random()*2.2,
+      sw:Math.random()*6, sa:15+Math.random()*30, a:.8, rot:(Math.random()-.5)*.8, c:'#ff7ab8', glow:true});
+  }
+}
 
-  var rt;
-  window.addEventListener('resize', function () {
-    clearTimeout(rt);
-    rt = setTimeout(function () { build(); makeHearts(); }, 180);
-  });
-})();
+let lastTap = 0;
+function toggle(x, y){
+  cur = 1 - cur;
+  buildTargets(PHRASES[cur]);
+  // xô các hạt để chữ mới "nở" ra
+  particles.forEach(p => { p.vx += (Math.random()-.5)*14; p.vy += (Math.random()-.5)*14; });
+  burst(x, y);
+  document.getElementById('hint').style.opacity = 0;
+}
+addEventListener('dblclick', e => toggle(e.clientX, e.clientY));
+// hỗ trợ chạm hai lần trên điện thoại
+addEventListener('touchend', e => {
+  const now = Date.now(), tc = e.changedTouches[0];
+  if(now - lastTap < 350){ e.preventDefault(); toggle(tc.clientX, tc.clientY); lastTap = 0; } else lastTap = now;
+}, {passive:false});
+addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+addEventListener('touchmove', e => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; }, {passive:true});
+addEventListener('touchend', () => { mouse.x = mouse.y = -999; });
+addEventListener('resize', resize);
+
+resize();
+requestAnimationFrame(frame);
 </script>
-
-</body></html>
+</body>
+</html>
